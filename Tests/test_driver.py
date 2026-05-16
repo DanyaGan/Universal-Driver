@@ -3,6 +3,8 @@
 
 import logging
 import pytest
+import sys
+sys.path.append('../')
 from Drivers import Selenium_driver, Selenium_node_js
 
 # Логи
