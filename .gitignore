@@ -9,3 +9,4 @@ data/
 node_modules/
 package-lock.json
 package.json
+Drivers/chromedriver.exe
