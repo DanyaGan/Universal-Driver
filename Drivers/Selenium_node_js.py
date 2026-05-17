@@ -19,8 +19,8 @@ class driver:
         self.chrome_options: object
 
         self.profile_name: str = name 
-        self.proxy:str = proxy
-
+        self.proxy:str = proxy if proxy else "None"
+ 
         self.eco: bool = eco
         self.headless: bool = headless
 
@@ -85,6 +85,8 @@ class driver:
         ensure_directory_exists(f'{self.path_profiles}\\{self.profile_name}_info')
         
         logger.debug('Проверка параметра на эконом памяти')
+        if not self.proxy:
+            self
         if self.eco:
             logger.debug('Эконом памяти включена')
             
