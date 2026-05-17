@@ -14,7 +14,7 @@ logger = getLogger(__name__)
 from .tool import *
 
 class driver:
-    def __init__(self, name:str, proxy:str, eco:bool):
+    def __init__(self, name:str, proxy:str, eco:bool, headless:bool):
         self.driver: object
         self.chrome_options: object
 
@@ -22,6 +22,8 @@ class driver:
         self.proxy:str = proxy
 
         self.eco: bool = eco
+        self.headless: bool = headless
+
         self.path_data = f'{os.path.dirname(os.path.abspath(__file__))}'
         self.path_driver = f'{self.path_data}\\driver.js'
         self.path_profiles = f'{self.path_data}\\profiles'
@@ -42,6 +44,10 @@ class driver:
             self.chrome_options.add_experimental_option("debuggerAddress", f"127.0.0.1:{self.port}")
             self.chrome_options.add_argument("--window-size=1920,1080")
             self.chrome_options.add_argument("--start-maximized")
+            
+            if self.headless:
+                 self.chrome_options.add_argument("--headless=new")  # для новых версий Chrome
+
             logger.debug('Подключения к браузеру')
             self.driver = webdriver.Chrome(options=self.chrome_options, service=Service(f'{self.path_data}\\chromedriver.exe'))
 
