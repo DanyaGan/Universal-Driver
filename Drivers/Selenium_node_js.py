@@ -37,6 +37,8 @@ class driver:
         logger.debug('Проверки наличия драйвера')
         download_and_extract_chrome_driver(self.path_data)
 
+        self.create_profile()
+
         logger.debug(f'Port:{self.port}')
         if self.port:
             logger.debug('Настройка к подключению браузеру')
