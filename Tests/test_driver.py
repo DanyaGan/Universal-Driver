@@ -1,5 +1,6 @@
 # tests/test_driver.py
-# pytest -s -v tests/test_driver.py
+# pytest -s -v Tests/test_driver.py
+# pytest -v -s --log-cli-level=DEBUG Tests/test_driver.py
 
 import logging
 import pytest
@@ -15,17 +16,38 @@ logging.getLogger("selenium").setLevel(logging.CRITICAL)
 logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
 
-@pytest.mark.parametrize("driver_class", [
-    Selenium_driver.driver,
-    Selenium_node_js.driver
-])
-def test_driver_start(driver_class):
+def test_driver_base():
     """
     Проверка запуска драйвера
     """
 
-    driver = driver_class(
-        name="Profile_1",
+    driver = Selenium_driver.driver(
+        name="Profile_base",
+        proxy="",
+        eco=True,
+        headless=False
+    )
+
+    assert driver is not None
+
+    # запуск
+    driver.start()
+
+    # если есть selenium driver
+    if hasattr(driver, "driver"):
+        assert driver.driver is not None
+
+    # закрытие браузера после теста
+    if hasattr(driver, "driver") and driver.driver:
+        driver.close()
+
+def test_driver_node():
+    """
+    Проверка запуска драйвера
+    """
+
+    driver = Selenium_node_js.driver(
+        name="Profile_node_1",
         proxy="",
         eco=False,
         headless=False
@@ -42,4 +64,4 @@ def test_driver_start(driver_class):
 
     # закрытие браузера после теста
     if hasattr(driver, "driver") and driver.driver:
-        driver.driver.quit()
+        driver.close()
