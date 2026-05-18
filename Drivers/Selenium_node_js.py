@@ -91,7 +91,7 @@ class driver:
             logger.debug('Эконом памяти включена')
             
             logger.debug(f'Запуск файла node.js| name:{self.profile_name}, eco_mode:{self.eco}, proxy:{self.proxy}')
-            self.node_process = subprocess.Popen(['node', self.path_data, self.profile_name, self.path_profiles, self.eco, self.proxy], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.node_process = subprocess.Popen(['node', self.path_data, self.profile_name, self.path_profiles, str(self.eco), self.proxy], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logger.debug('Файл node.js запущен')
 
             logger.debug('Запуск цыкла просмотра ответа файла node.js')
@@ -107,7 +107,7 @@ class driver:
                     logger.debug('Завершения драйвера')
                     self.node_process.terminate()
                     break
-                except ImportError:
+                except Exception:
                     time.sleep(1)
             else:
                 logger.error('Ошибка создания профиля')

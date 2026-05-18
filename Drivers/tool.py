@@ -190,7 +190,7 @@ def download_and_extract_chrome_driver(path_data) -> bool:
 
     try:
         logger.debug('Скачивание архива драйвера') 
-        response = requests.get('https://storage.googleapis.com/chrome-for-testing-public/148.0.7778.167/win64/chromedriver-win64.zip')
+        response = requests.get('https://storage.googleapis.com/chrome-for-testing-public/127.0.6483.0/win64/chromedriver-win64.zip')
         response.raise_for_status()  # Check for successful request
         logger.debug('Архив драйвера загружен') 
     except requests.exceptions.RequestException as e:
