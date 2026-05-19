@@ -66,16 +66,21 @@ class driver:
 
         logger.debug('Завершения процеса драйвера')
         self.node_process.terminate()
-        
-        # Get cookies and save them if a profile is specified
-        if self.profile_name:
-            logger.debug('Запуск функции сохранения куков в файл')
-            #self.get_cookies(self.profile_name, f'{self.path_data}\\profiles\\{self.profile_name}_info')
-            time.sleep(10)
-            
-            if self.eco:
-                logger.debug('Удаления профиля браузера')
-                shutil.rmtree(f'{self.path_data }\\profiles\\{self.profile_name}')
+   
+        if self.eco:
+            while True:
+                try:
+                    shutil.rmtree(f'{self.path_data}\\profiles\\{self.profile_name}')
+
+                    logger.debug('Профиль удалён')
+                    break
+
+                except PermissionError:
+                    logger.debug('Папка ещё используется...')
+                    time.sleep(3)
+
+                except FileNotFoundError:
+                    break
 
     def create_profile(self, ) -> bool:
         '''Функция запуска и создания профиля браузера'''
@@ -91,7 +96,7 @@ class driver:
             logger.debug('Эконом памяти включена')
             
             logger.debug(f'Запуск файла node.js| name:{self.profile_name}, eco_mode:{self.eco}, proxy:{self.proxy}')
-            self.node_process = subprocess.Popen(['node', self.path_data, self.profile_name, self.path_profiles, str(self.eco), self.proxy], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.node_process = subprocess.Popen(['node', self.path_driver, self.path_profiles, str(self.profile_name), str(self.proxy)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logger.debug('Файл node.js запущен')
 
             logger.debug('Запуск цыкла просмотра ответа файла node.js')
@@ -112,14 +117,8 @@ class driver:
             else:
                 logger.error('Ошибка создания профиля')
 
-            time.sleep(5)
-            logger.debug('Запуск функции загрузки куков в профиль')
-            self.set_cookies(self.profile_name, None)
-            logger.debug("Куки загружены в профиль")
-
-
             logger.debug('Запуск драйвера')
-            self.node_process = subprocess.Popen(['node', self.path_data, self.profile_name, self.path_profiles, self.eco, self.proxy], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.node_process = subprocess.Popen(['node', self.path_driver, self.path_profiles, str(self.profile_name), str(self.proxy)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logger.debug('Файл node.js запущен')
         else:
             logger.debug('Эконом памяти выключен')
