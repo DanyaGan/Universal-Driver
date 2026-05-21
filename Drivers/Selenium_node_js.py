@@ -108,18 +108,15 @@ class driver:
                 try:
                     r = json.loads(output.decode('utf-8'))
                     logger.debug('Получен ответ драйвера %s', r)
-
-                    logger.debug('Завершения драйвера')
-                    self.node_process.terminate()
                     break
                 except Exception:
                     time.sleep(1)
             else:
                 logger.error('Ошибка создания профиля')
+            
+            self.port = r['port']
+            return True
 
-            logger.debug('Запуск драйвера')
-            self.node_process = subprocess.Popen(['node', self.path_driver, self.path_profiles, str(self.profile_name), str(self.proxy)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            logger.debug('Файл node.js запущен')
         else:
             logger.debug('Эконом памяти выключен')
 
