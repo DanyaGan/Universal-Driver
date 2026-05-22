@@ -8,6 +8,8 @@ import sqlite3
 import time
 import shutil
 
+from pathlib import Path
+
 from logging import getLogger
 logger = getLogger(__name__)
 
@@ -28,36 +30,59 @@ class driver:
         self.path_driver = f'{self.path_data}\\driver.js'
         self.path_profiles = f'{self.path_data}\\profiles'
 
-        self.port: int        
         self.node_process: object
 
-    def start(self, ) -> bool:
-        logger.debug('Открытия профиля')
+    def start(self):
 
-        logger.debug('Проверки наличия драйвера')
-        download_and_extract_chrome_driver(self.path_data)
+        logger.info('Запуск браузерного профиля')
 
-        self.create_profile()
+        try:
+            download_and_extract_chrome_driver(self.path_data)
 
-        logger.debug(f'Port:{self.port}')
-        if self.port:
-            logger.debug('Настройка к подключению браузеру')
-            self.chrome_options = Options()
-            self.chrome_options.add_experimental_option("debuggerAddress", f"127.0.0.1:{self.port}")
-            self.chrome_options.add_argument("--window-size=1920,1080")
-            self.chrome_options.add_argument("--start-maximized")
-            
+            port = self.create_profile()
+
+            if not isinstance(port, int):
+                raise RuntimeError(f'Некорректный порт: {port}')
+
+            logger.info('Подключение к Chrome DevTools: %s', port)
+
+            options = Options()
+
+            options.add_experimental_option(
+                "debuggerAddress",
+                f"127.0.0.1:{port}"
+            )
+
+            options.add_argument("--window-size=1920,1080")
+
             if self.headless:
-                 self.chrome_options.add_argument("--headless=new")  # для новых версий Chrome
+                logger.warning(
+                    'Headless может не работать '
+                    'при debuggerAddress attach'
+                )
 
-            logger.debug('Подключения к браузеру')
-            self.driver = webdriver.Chrome(options=self.chrome_options, service=Service(f'{self.path_data}\\chromedriver.exe'))
+            driver_path = Path(self.path_data) / 'chromedriver.exe'
 
-            pid = self.driver.service.process.pid
-            logger.debug(f"Pid prossec: {pid}")
+            service = Service(str(driver_path))
+
+            self.driver = webdriver.Chrome(
+                service=service,
+                options=options
+            )
+
+            process = getattr(self.driver.service, 'process', None)
+
+            if process:
+                logger.info('ChromeDriver PID: %s', process.pid)
+
             return self.driver
-        else:
-            logger.error('Порт не коректный для подключения')
+
+        except Exception as e:
+
+            logger.exception('Ошибка запуска браузера: %s', e)
+
+            self.close()
+
             return False
     
     def close(self):
@@ -82,68 +107,89 @@ class driver:
                 except FileNotFoundError:
                     break
 
-    def create_profile(self, ) -> bool:
-        '''Функция запуска и создания профиля браузера'''
 
-        # Ensure the existence of necessary directories
-        ensure_directory_exists(self.path_profiles)
-        ensure_directory_exists(f'{self.path_profiles}\\{self.profile_name}_info')
-        
-        logger.debug('Проверка параметра на эконом памяти')
-        if not self.proxy:
-            self
-        if self.eco:
-            logger.debug('Эконом памяти включена')
-            
-            logger.debug(f'Запуск файла node.js| name:{self.profile_name}, eco_mode:{self.eco}, proxy:{self.proxy}')
-            self.node_process = subprocess.Popen(['node', self.path_driver, self.path_profiles, str(self.profile_name), str(self.proxy)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            logger.debug('Файл node.js запущен')
 
-            logger.debug('Запуск цыкла просмотра ответа файла node.js')
-            for _ in range(100):
-                logger.debug('Получения ответа')
-                output = self.node_process.stdout.readline()
-                logger.debug('Получен ответ %s', output)
+    def create_profile(self) -> int | bool:
+        """Создание и запуск профиля браузера"""
 
-                try:
-                    r = json.loads(output.decode('utf-8'))
-                    logger.debug('Получен ответ драйвера %s', r)
-                    break
-                except Exception:
-                    time.sleep(1)
-            else:
-                logger.error('Ошибка создания профиля')
-            
-            self.port = r['port']
-            return True
+        # Создание директорий
+        Path(self.path_profiles).mkdir(parents=True, exist_ok=True)
+        Path(f'{self.path_profiles}\\{self.profile_name}_info').mkdir(parents=True, exist_ok=True)
 
-        else:
-            logger.debug('Эконом памяти выключен')
+        cmd = [
+            'node',
+            self.path_driver,
+            self.path_profiles,
+            str(self.profile_name),
+            str(self.proxy)
+        ]
 
-            logger.debug(f'Запуск драйвера {self.path_driver, self.path_profiles, self.profile_name, str(self.proxy)}')
-            self.node_process = subprocess.Popen(['node', self.path_driver, self.path_profiles, str(self.profile_name), str(self.proxy)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            logger.debug('Файл node.js запущен')
+        logger.debug('Запуск Node.js: %s', cmd)
 
-        logger.debug('Запуск цыкла просмотра ответа файла node.js')
-        for _ in range(100):
-            logger.debug('Получения ответа драйвера')
-            output = self.node_process.stdout.readline()
-            logger.debug('Получен ответ %s', output)
+        try:
+            self.node_process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,           # сразу str вместо bytes
+                encoding='utf-8',
+                bufsize=1
+            )
+
+        except Exception as e:
+            logger.exception('Ошибка запуска Node.js: %s', e)
+            return False
+
+        logger.debug('Node.js процесс запущен')
+
+        timeout = 30
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+
+            # Проверка что процесс не умер
+            if self.node_process.poll() is not None:
+                stderr = self.node_process.stderr.read()
+
+                logger.error(
+                    'Node.js процесс завершился\n'
+                    'Код: %s\n'
+                    'stderr: %s',
+                    self.node_process.returncode,
+                    stderr
+                )
+
+                return False
+
+            line = self.node_process.stdout.readline()
+
+            if not line:
+                time.sleep(0.1)
+                continue
+
+            logger.debug('Ответ Node.js: %s', line.strip())
 
             try:
-                r = json.loads(output.decode('utf-8'))
-                logger.debug('Получен ответ драйвера %s', r)
+                response = json.loads(line)
 
-                logger.debug('Проверка ответа')
-                if 'status' in r.keys():
-                    logger.debug('Ответ драйвера о том что профиль создан')
-                    return self.create_profile(self.profile_name, self.proxy, self.eco)
-                break
-            except Exception:
-                time.sleep(1)
-        else:
-            logger.error('Ошибка создания или запуска профиля')
-            return False
-        
-        self.port = r['port']
-        return True
+            except json.JSONDecodeError:
+                logger.warning('Некорректный JSON: %s', line)
+                continue
+
+            # Успешное создание
+            if response.get('status'):
+                logger.debug('Профиль успешно создан')
+
+            # Получен порт
+            port = response.get('port')
+
+            if port:
+                logger.debug('Получен порт: %s', port)
+                return port
+
+        logger.error('Таймаут ожидания ответа Node.js')
+
+        self.node_process.kill()
+
+        return False
